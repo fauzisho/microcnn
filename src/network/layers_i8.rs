@@ -75,29 +75,32 @@ impl QuantizedLayer for Conv2dLayerQ {
         let mut output = TensorI8::new(input.n, self.out_channels, output_height, output_width);
 
         let combined_scale = input_params.scale * self.weight_params.scale;
-        let input_zp = input_params.zero_point;
 
-        for n in 0..input.n {
-            for oc in 0..self.out_channels {
-                for oh in 0..output_height {
-                    for ow in 0..output_width {
-                        let mut sum: i32 = 0;
-                        for ic in 0..self.in_channels {
-                            for kh in 0..self.kernel_size {
-                                for kw in 0..self.kernel_size {
-                                    let inp = padded.get(n, ic, oh * self.stride + kh, ow * self.stride + kw) as i32;
-                                    let wt = self.weights_i8.get(oc, ic, kh, kw) as i32;
-                                    sum += (inp - input_zp) * wt;
-                                }
-                            }
-                        }
-                        let result = sum as f32 * combined_scale + self.bias.get(oc, 0, 0, 0);
-                        let quantized = (result / self.output_params.scale).round() as i32 + self.output_params.zero_point;
-                        output.set(n, oc, oh, ow, quantized.clamp(-128, 127) as i8);
-                    }
-                }
-            }
-        }
+        // Collect bias into flat Vec for im2col GEMM
+        let bias_flat: Vec<f32> = (0..self.out_channels)
+            .map(|oc| self.bias.get(oc, 0, 0, 0))
+            .collect();
+
+        crate::conv::conv2d_im2col_i8(
+            &padded.data,
+            input.n,
+            self.in_channels,
+            padded.h,
+            padded.w,
+            &self.weights_i8.data,
+            &bias_flat,
+            self.out_channels,
+            self.kernel_size,
+            self.stride,
+            output_height,
+            output_width,
+            input_params.zero_point,
+            combined_scale,
+            self.output_params.scale,
+            self.output_params.zero_point,
+            &mut output.data,
+        );
+
         (output, self.output_params.clone())
     }
 }

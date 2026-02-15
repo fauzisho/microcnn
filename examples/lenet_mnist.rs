@@ -100,6 +100,17 @@ fn main() {
     let result = run_benchmark(&mut fp32_net, &int8_net, &int4_net, &test_images, &test_labels, num_benchmark);
     print_report(&result);
 
+    // ===== SIMD Platform Detection =====
+    println!("\n{}", "=".repeat(60));
+    println!("=== SIMD Platform Info ===");
+    if cfg!(all(target_arch = "aarch64", feature = "simd")) {
+        println!("  NEON SIMD:  ENABLED (aarch64 + simd feature)");
+    } else if cfg!(target_arch = "aarch64") {
+        println!("  NEON SIMD:  DISABLED (simd feature not enabled)");
+    } else {
+        println!("  NEON SIMD:  NOT AVAILABLE (not aarch64)");
+    }
+
     // ===== Convolution Algorithm Comparison =====
     println!("\n{}", "=".repeat(60));
     println!("=== Convolution Algorithm Comparison (FP32) ===");
@@ -248,4 +259,120 @@ fn main() {
             name, conv_times[0], conv_times[1], conv_times[2]
         );
     }
+
+    // ===== SIMD Im2col Benchmark: FP32 vs INT8 vs INT4 =====
+    println!("\n{}", "=".repeat(60));
+    println!("=== SIMD Im2col Benchmark (FP32 vs INT8 vs INT4) ===");
+    println!("{}", "=".repeat(60));
+
+    if cfg!(all(target_arch = "aarch64", feature = "simd")) {
+        println!("  Backend: NEON SIMD (aarch64)");
+    } else {
+        println!("  Backend: Scalar fallback");
+    }
+
+    // Per-layer Conv2d timing comparison (single inference, averaged over warmup)
+    let warmup = 10;
+    let timing_iters = 100;
+
+    // Warm up
+    for _ in 0..warmup {
+        let input = test_images.at(0);
+        let _ = algo_nets.iter_mut()
+            .find(|(a, _, _)| *a == ConvAlgorithm::Im2col)
+            .map(|(_, _, net)| net.predict(input.clone()));
+        let _ = int8_net.predict(&input);
+        let _ = int4_net.predict(&input);
+    }
+
+    // Collect per-layer timings (averaged)
+    let mut fp32_conv_total = [Duration::ZERO; 3];
+    let mut int8_conv_total = [Duration::ZERO; 3];
+    let mut int4_conv_total = [Duration::ZERO; 3];
+    let mut fp32_full_total = Duration::ZERO;
+    let mut int8_full_total = Duration::ZERO;
+    let mut int4_full_total = Duration::ZERO;
+
+    let conv_layer_indices = [0, 3, 6]; // Conv2d layer positions in LeNet
+
+    let im2col_net = algo_nets.iter_mut()
+        .find(|(a, _, _)| *a == ConvAlgorithm::Im2col)
+        .map(|(_, _, net)| net)
+        .unwrap();
+
+    for i in 0..timing_iters {
+        let input = test_images.at(i % 100);
+
+        let (_, fp32_timings) = im2col_net.predict_timed(input.clone());
+        let (_, int8_timings) = int8_net.predict_timed(&input);
+        let (_, int4_timings) = int4_net.predict_timed(&input);
+
+        for (ci, &layer_idx) in conv_layer_indices.iter().enumerate() {
+            if layer_idx < fp32_timings.len() {
+                fp32_conv_total[ci] += fp32_timings[layer_idx].1;
+            }
+            if layer_idx < int8_timings.len() {
+                int8_conv_total[ci] += int8_timings[layer_idx].1;
+            }
+            if layer_idx < int4_timings.len() {
+                int4_conv_total[ci] += int4_timings[layer_idx].1;
+            }
+        }
+
+        fp32_full_total += fp32_timings.iter().map(|(_, d)| *d).sum::<Duration>();
+        int8_full_total += int8_timings.iter().map(|(_, d)| *d).sum::<Duration>();
+        int4_full_total += int4_timings.iter().map(|(_, d)| *d).sum::<Duration>();
+    }
+
+    println!("\n--- Per-Layer Conv2d Timing (avg over {} inferences) ---", timing_iters);
+    println!(
+        "{:<10} {:>14} {:>14} {:>14} {:>14} {:>14}",
+        "Layer", "FP32 Im2col", "INT8 Im2col", "INT4", "INT8 Speedup", "INT4 Speedup"
+    );
+    println!("{}", "-".repeat(84));
+
+    let layer_names = ["Conv2d #0", "Conv2d #1", "Conv2d #2"];
+    for ci in 0..3 {
+        let fp32_us = fp32_conv_total[ci].as_nanos() as f64 / timing_iters as f64 / 1000.0;
+        let int8_us = int8_conv_total[ci].as_nanos() as f64 / timing_iters as f64 / 1000.0;
+        let int4_us = int4_conv_total[ci].as_nanos() as f64 / timing_iters as f64 / 1000.0;
+        let int8_speedup = if int8_us > 0.001 { fp32_us / int8_us } else { 0.0 };
+        let int4_speedup = if int4_us > 0.001 { fp32_us / int4_us } else { 0.0 };
+
+        println!(
+            "{:<10} {:>12.1}us {:>12.1}us {:>12.1}us {:>13.2}x {:>13.2}x",
+            layer_names[ci], fp32_us, int8_us, int4_us, int8_speedup, int4_speedup
+        );
+    }
+
+    // Total conv time
+    let fp32_conv_us: f64 = fp32_conv_total.iter()
+        .map(|d| d.as_nanos() as f64 / timing_iters as f64 / 1000.0)
+        .sum();
+    let int8_conv_us: f64 = int8_conv_total.iter()
+        .map(|d| d.as_nanos() as f64 / timing_iters as f64 / 1000.0)
+        .sum();
+    let int4_conv_us: f64 = int4_conv_total.iter()
+        .map(|d| d.as_nanos() as f64 / timing_iters as f64 / 1000.0)
+        .sum();
+    let int8_conv_speedup = if int8_conv_us > 0.001 { fp32_conv_us / int8_conv_us } else { 0.0 };
+    let int4_conv_speedup = if int4_conv_us > 0.001 { fp32_conv_us / int4_conv_us } else { 0.0 };
+
+    println!("{}", "-".repeat(84));
+    println!(
+        "{:<10} {:>12.1}us {:>12.1}us {:>12.1}us {:>13.2}x {:>13.2}x",
+        "Conv Total", fp32_conv_us, int8_conv_us, int4_conv_us, int8_conv_speedup, int4_conv_speedup
+    );
+
+    // Full network timing
+    let fp32_full_us = fp32_full_total.as_nanos() as f64 / timing_iters as f64 / 1000.0;
+    let int8_full_us = int8_full_total.as_nanos() as f64 / timing_iters as f64 / 1000.0;
+    let int4_full_us = int4_full_total.as_nanos() as f64 / timing_iters as f64 / 1000.0;
+    let int8_full_speedup = if int8_full_us > 0.001 { fp32_full_us / int8_full_us } else { 0.0 };
+    let int4_full_speedup = if int4_full_us > 0.001 { fp32_full_us / int4_full_us } else { 0.0 };
+
+    println!(
+        "{:<10} {:>12.1}us {:>12.1}us {:>12.1}us {:>13.2}x {:>13.2}x",
+        "Full Net", fp32_full_us, int8_full_us, int4_full_us, int8_full_speedup, int4_full_speedup
+    );
 }

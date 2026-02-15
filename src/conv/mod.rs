@@ -7,9 +7,11 @@ mod naive;
 mod im2col;
 mod winograd;
 mod fft;
+pub(crate) mod simd;
 
 pub use naive::conv2d_naive;
 pub use im2col::conv2d_im2col;
+pub use im2col::conv2d_im2col_i8;
 pub use winograd::conv2d_winograd;
 pub use fft::conv2d_fft;
 

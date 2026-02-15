@@ -11,6 +11,8 @@ categories = ["science", "algorithms"]
 exclude = ["data/*", ".idea/*"]
 
 [features]
+default = ["simd"]
+simd = []
 mnist_pre_pad = []
 
 [dependencies]
