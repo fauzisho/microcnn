@@ -1,0 +1,17 @@
+[package]
+name = "microcnn"
+version = "0.1.0"
+edition = "2021"
+authors = ["Fauzi Sholichin"]
+license = "MIT"
+description = "A minimal CNN framework in Rust with Quantization"
+repository = "https://github.com/fauzisholichin/microcnn"
+keywords = ["cnn", "neural-network", "quantization", "deep-learning"]
+categories = ["science", "algorithms"]
+exclude = ["data/*"]
+
+[features]
+mnist_pre_pad = []
+
+[dependencies]
+flate2 = "1"
