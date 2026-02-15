@@ -1,0 +1,147 @@
+cargo run --release --example lenet_mnist
+Finished `release` profile [optimized] target(s) in 0.04s
+Running `target/release/examples/lenet_mnist`
+Loading FP32 LeNet model...
+Loading MNIST test set...
+Calibrating with 100 samples...
+Calibration complete (100 samples)
+Building INT8 quantized model...
+Building INT4 quantized model...
+
+=== Quick Verification (sample 0) ===
+
+
+
+
+
+
+
+      xxxxxx
+      xxxxxxxxxxxxxxxx
+      xxxxxxxxxxxxxxxx
+           xxxxxxxxxxx
+                  xxxx
+                 xxxx
+                 xxxx
+                xxxx
+                xxxx
+               xxxx
+               xxx
+              xxxx
+             xxxx
+            xxxxx
+            xxxx
+           xxxxx
+           xxxx
+          xxxxx
+          xxxxx
+          xxxx
+
+
+FP32 predictions:
+  0: 0.0020
+  1: 0.0085
+  2: 0.0064
+  3: 0.0046
+  4: 0.0019
+  5: 0.0015
+  6: 0.0000
+  7: 0.9699
+  8: 0.0005
+  9: 0.0047
+
+INT8 predictions:
+  0: 0.0020
+  1: 0.0086
+  2: 0.0067
+  3: 0.0049
+  4: 0.0020
+  5: 0.0016
+  6: 0.0000
+  7: 0.9683
+  8: 0.0005
+  9: 0.0052
+
+INT4 predictions:
+  0: 0.0005
+  1: 0.0045
+  2: 0.0015
+  3: 0.0378
+  4: 0.0045
+  5: 0.0015
+  6: 0.0001
+  7: 0.9361
+  8: 0.0005
+  9: 0.0130
+
+Running benchmark (1000 samples)...
+
+=== Per-Layer Metrics ===
+Layer  Type        FP32 Time  INT8 Time  INT4 Time  FP32 Mem  INT8 Mem  INT4 Mem   INT8 MSE   INT4 MSE
+0      Conv2d     0.13ms     0.05ms     0.23ms      624B      174B       99B   0.000115   0.022301
+1      ReLu     0.01ms     0.00ms     0.01ms        0B        0B        0B   0.000080   0.017441
+2      MaxPool2d     0.01ms     0.01ms     0.01ms        0B        0B        0B   0.000087   0.019562
+3      Conv2d     0.31ms     0.04ms     0.47ms     9664B     2464B     1264B   0.000822   0.213480
+4      ReLu     0.00ms     0.00ms     0.00ms        0B        0B        0B   0.000188   0.059043
+5      MaxPool2d     0.00ms     0.00ms     0.00ms        0B        0B        0B   0.000370   0.116998
+6      Conv2d     0.19ms     0.01ms     0.09ms   192480B    48480B    24480B   0.000895   0.331971
+7      ReLu     0.00ms     0.00ms     0.00ms        0B        0B        0B   0.000383   0.124720
+8      Linear     0.02ms     0.01ms     0.02ms    40656B    10416B     5376B   0.000362   0.202737
+9      ReLu     0.00ms     0.00ms     0.00ms        0B        0B        0B   0.000174   0.096129
+10     Linear     0.00ms     0.00ms     0.00ms     3400B      880B      460B   0.001202   1.060178
+11     SoftMax     0.00ms     0.00ms     0.00ms        0B        0B        0B   0.000000   0.000236
+
+=== Totals ===
+FP32: 688.4ms / 246824B
+INT8: 120.8ms / 62414B    Speedup: 5.70x  Savings: 75%
+INT4: 845.3ms / 31679B    Speedup: 0.81x  Savings: 87%
+
+=== Accuracy (1000 samples) ===
+FP32: 98.7%    INT8: 98.7% (drop 0.0%, agree 100.0%)    INT4: 95.3% (drop 3.4%, agree 96.0%)
+
+============================================================
+=== SIMD Platform Info ===
+  NEON SIMD:  ENABLED (aarch64 + simd feature)
+
+============================================================
+=== Convolution Algorithm Comparison (FP32) ===
+============================================================
+
+--- Correctness Check (first 100 samples) ---
+Algorithm      Mismatches     Max Abs Diff
+Naive         (reference)                -
+Im2col                  0      1.862645e-7
+Winograd                0      1.862645e-7
+FFT                     0      9.536743e-7
+
+--- Timing Benchmark (1000 samples) ---
+
+Algorithm      Total Time  Per Image      Speedup   Accuracy
+------------------------------------------------------------
+Naive            685.5ms    685.5us        1.00x      98.7%
+Im2col           553.3ms    553.3us        1.24x      98.7%
+Winograd         552.7ms    552.7us        1.24x      98.7%
+FFT             7996.8ms   7996.8us        0.09x      98.7%
+
+--- Per-Layer Conv2d Timing (single inference) ---
+Algorithm       Conv2d #0    Conv2d #1    Conv2d #2
+----------------------------------------------------
+Naive               132us        298us        189us
+Im2col               82us        106us        317us
+Winograd             73us        112us        316us
+FFT                 411us       1366us       6105us
+
+============================================================
+=== SIMD Im2col Benchmark (FP32 vs INT8 vs INT4) ===
+============================================================
+  Backend: NEON SIMD (aarch64)
+
+--- Per-Layer Conv2d Timing (avg over 100 inferences) ---
+Layer         FP32 Im2col    INT8 Im2col           INT4   INT8 Speedup   INT4 Speedup
+------------------------------------------------------------------------------------
+Conv2d #0          68.0us         48.4us        231.7us          1.40x          0.29x
+Conv2d #1         105.3us         39.4us        465.1us          2.67x          0.23x
+Conv2d #2         320.5us          5.4us         90.6us         59.01x          3.54x
+------------------------------------------------------------------------------------
+Conv Total        493.8us         93.3us        787.4us          5.29x          0.63x
+Full Net          551.2us        118.7us        833.2us          4.64x          0.66x
