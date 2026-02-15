@@ -8,7 +8,7 @@ description = "A minimal CNN framework in Rust with Quantization"
 repository = "https://github.com/fauzisho/microcnn"
 keywords = ["cnn", "neural-network", "quantization", "deep-learning"]
 categories = ["science", "algorithms"]
-exclude = ["data/*"]
+exclude = ["data/*", ".idea/*"]
 
 [features]
 mnist_pre_pad = []
