@@ -13,21 +13,54 @@
 //! net.load("data/lenet.raw");
 //! ```
 
-/// FP32 tensor with shared-memory support.
+/// FP32, INT8, and INT4 tensors.
 pub mod tensor;
-/// INT8 tensor.
-pub mod tensor_i8;
-/// INT4 packed tensor (2 values per byte).
-pub mod tensor_i4;
-/// Quantization utilities: symmetric/asymmetric quantization, calibration.
-pub mod quantization;
+/// Re-export tensor types at legacy paths.
+pub use tensor::TensorI8;
+pub use tensor::TensorI4;
+/// Alias modules so `crate::tensor_i8::TensorI8` etc. still resolve.
+pub mod tensor_i8 {
+    pub use crate::tensor::TensorI8;
+}
+pub mod tensor_i4 {
+    pub use crate::tensor::TensorI4;
+}
+
+/// Quantization utilities and model architecture (LeNet).
+pub mod arc;
+/// Re-export at legacy paths.
+pub mod quantization {
+    pub use crate::arc::QuantParams;
+    pub use crate::arc::Calibrator;
+    pub use crate::arc::quantize_tensor_symmetric;
+    pub use crate::arc::quantize_tensor_asymmetric;
+    pub use crate::arc::dequantize_tensor;
+    pub use crate::arc::quantize_tensor_symmetric_i4;
+    pub use crate::arc::quantize_tensor_asymmetric_i4;
+    pub use crate::arc::dequantize_tensor_i4;
+}
+pub mod lenet {
+    pub use crate::arc::lenet;
+    pub use crate::arc::lenet_with_algorithm;
+    pub use crate::arc::lenet_quantized;
+    pub use crate::arc::lenet_quantized_i4;
+}
+
 /// Neural network layers and network types (FP32, INT8, INT4).
 pub mod network;
-/// LeNet-5 model builders.
-pub mod lenet;
+
 /// MNIST dataset loaders.
-pub mod mnist;
+pub mod loader;
+pub mod mnist {
+    pub use crate::loader::MNIST;
+    pub use crate::loader::MNISTLabels;
+}
+
 /// Convolution algorithm implementations (Naive, Im2col, Winograd, FFT).
 pub mod conv;
+
 /// Benchmarking utilities for comparing FP32/INT8/INT4 performance.
-pub mod benchmark;
+pub mod metrics;
+pub mod benchmark {
+    pub use crate::metrics::*;
+}

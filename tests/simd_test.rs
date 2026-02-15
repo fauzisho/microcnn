@@ -112,7 +112,7 @@ fn test_i8_im2col_vs_scalar_5x5_non_aligned_k() {
     let out_w = (in_w - ks) / stride + 1;
 
     let input: Vec<i8> = (0..batch * in_c * in_h * in_w)
-        .map(|i| ((i * 3 % 256) as i8))
+        .map(|i| (i * 3 % 256) as i8)
         .collect();
     let weights: Vec<i8> = (0..out_c * in_c * ks * ks)
         .map(|i| ((i * 11 % 200) as i8).wrapping_sub(100))
@@ -196,10 +196,10 @@ fn test_i8_im2col_multi_channel() {
     let out_w = (in_w - ks) / stride + 1;
 
     let input: Vec<i8> = (0..batch * in_c * in_h * in_w)
-        .map(|i| ((i * 13 % 256) as i8))
+        .map(|i| (i * 13 % 256) as i8)
         .collect();
     let weights: Vec<i8> = (0..out_c * in_c * ks * ks)
-        .map(|i| ((i * 7 % 256) as i8))
+        .map(|i| (i * 7 % 256) as i8)
         .collect();
     let bias: Vec<f32> = (0..out_c).map(|i| i as f32 * 0.1 - 0.5).collect();
     let input_zp = -3;
