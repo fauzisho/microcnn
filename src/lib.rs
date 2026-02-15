@@ -27,5 +27,7 @@ pub mod network;
 pub mod lenet;
 /// MNIST dataset loaders.
 pub mod mnist;
+/// Convolution algorithm implementations (Naive, Im2col, Winograd, FFT).
+pub mod conv;
 /// Benchmarking utilities for comparing FP32/INT8/INT4 performance.
 pub mod benchmark;

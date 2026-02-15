@@ -1,6 +1,7 @@
 use std::fs::File;
 
 use crate::tensor::Tensor;
+use crate::conv::ConvAlgorithm;
 use super::{LayerType, Layer, impl_layer_common, read_floats, pad_tensor};
 
 /// 2D convolution layer (FP32).
@@ -10,6 +11,7 @@ pub struct Conv2dLayer {
     kernel_size: usize,
     stride: usize,
     pad: usize,
+    algorithm: ConvAlgorithm,
     input: Tensor,
     weights: Tensor,
     bias: Tensor,
@@ -24,6 +26,22 @@ impl Conv2dLayer {
             kernel_size,
             stride,
             pad,
+            algorithm: ConvAlgorithm::Naive,
+            input: Tensor::empty(),
+            weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
+            bias: Tensor::new1(out_channels),
+            output: Tensor::empty(),
+        }
+    }
+
+    pub fn with_algorithm(in_channels: usize, out_channels: usize, kernel_size: usize, stride: usize, pad: usize, algorithm: ConvAlgorithm) -> Self {
+        Conv2dLayer {
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            pad,
+            algorithm,
             input: Tensor::empty(),
             weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
             bias: Tensor::new1(out_channels),
@@ -54,20 +72,72 @@ impl Layer for Conv2dLayer {
         self.output = Tensor::new(self.input.n, self.out_channels, output_height, output_width);
         let padded = pad_tensor(&self.input, self.pad, 0.0);
 
-        for n in 0..self.input.n {
+        // Copy tensor data to flat slices for the conv algorithms
+        let batch = self.input.n;
+        let in_h = padded.h;
+        let in_w = padded.w;
+        let in_size = batch * self.in_channels * in_h * in_w;
+        let w_size = self.out_channels * self.in_channels * self.kernel_size * self.kernel_size;
+        let out_size = batch * self.out_channels * output_height * output_width;
+
+        let mut input_flat = vec![0.0f32; in_size];
+        for n in 0..batch {
+            for c in 0..self.in_channels {
+                for h in 0..in_h {
+                    for w in 0..in_w {
+                        input_flat[n * self.in_channels * in_h * in_w + c * in_h * in_w + h * in_w + w] =
+                            padded.get(n, c, h, w);
+                    }
+                }
+            }
+        }
+
+        let mut weights_flat = vec![0.0f32; w_size];
+        for oc in 0..self.out_channels {
+            for ic in 0..self.in_channels {
+                for kh in 0..self.kernel_size {
+                    for kw in 0..self.kernel_size {
+                        weights_flat[oc * self.in_channels * self.kernel_size * self.kernel_size
+                            + ic * self.kernel_size * self.kernel_size
+                            + kh * self.kernel_size + kw] = self.weights.get(oc, ic, kh, kw);
+                    }
+                }
+            }
+        }
+
+        let mut bias_flat = vec![0.0f32; self.out_channels];
+        for oc in 0..self.out_channels {
+            bias_flat[oc] = self.bias.get(oc, 0, 0, 0);
+        }
+
+        let mut output_flat = vec![0.0f32; out_size];
+
+        crate::conv::conv2d(
+            self.algorithm,
+            &input_flat,
+            batch,
+            self.in_channels,
+            in_h,
+            in_w,
+            &weights_flat,
+            &bias_flat,
+            self.out_channels,
+            self.kernel_size,
+            self.stride,
+            output_height,
+            output_width,
+            &mut output_flat,
+        );
+
+        // Copy back to output tensor
+        for n in 0..batch {
             for oc in 0..self.out_channels {
                 for oh in 0..output_height {
                     for ow in 0..output_width {
-                        let mut sum = 0.0f32;
-                        for ic in 0..self.in_channels {
-                            for kh in 0..self.kernel_size {
-                                for kw in 0..self.kernel_size {
-                                    sum += padded.get(n, ic, oh * self.stride + kh, ow * self.stride + kw)
-                                        * self.weights.get(oc, ic, kh, kw);
-                                }
-                            }
-                        }
-                        self.output.set(n, oc, oh, ow, sum + self.bias.get(oc, 0, 0, 0));
+                        self.output.set(n, oc, oh, ow,
+                            output_flat[n * self.out_channels * output_height * output_width
+                                + oc * output_height * output_width
+                                + oh * output_width + ow]);
                     }
                 }
             }

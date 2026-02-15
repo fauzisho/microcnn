@@ -1,3 +1,4 @@
+use crate::conv::ConvAlgorithm;
 use crate::network::*;
 use crate::quantization::{QuantParams, quantize_tensor_symmetric, quantize_tensor_symmetric_i4};
 
@@ -11,6 +12,24 @@ pub fn lenet(debug: bool) -> NeuralNetwork {
     net.add(Box::new(ReLuLayer::new()));
     net.add(Box::new(MaxPool2dLayer::new(2, 2, 0)));
     net.add(Box::new(Conv2dLayer::new(16, 120, 5, 1, 0)));
+    net.add(Box::new(ReLuLayer::new()));
+    net.add(Box::new(LinearLayer::new(120, 84)));
+    net.add(Box::new(ReLuLayer::new()));
+    net.add(Box::new(LinearLayer::new(84, 10)));
+    net.add(Box::new(SoftMaxLayer::new()));
+    net
+}
+
+/// Build a FP32 LeNet-5 using a specific convolution algorithm.
+pub fn lenet_with_algorithm(debug: bool, algorithm: ConvAlgorithm) -> NeuralNetwork {
+    let mut net = NeuralNetwork::new(debug);
+    net.add(Box::new(Conv2dLayer::with_algorithm(1, 6, 5, 1, 2, algorithm)));
+    net.add(Box::new(ReLuLayer::new()));
+    net.add(Box::new(MaxPool2dLayer::new(2, 2, 0)));
+    net.add(Box::new(Conv2dLayer::with_algorithm(6, 16, 5, 1, 0, algorithm)));
+    net.add(Box::new(ReLuLayer::new()));
+    net.add(Box::new(MaxPool2dLayer::new(2, 2, 0)));
+    net.add(Box::new(Conv2dLayer::with_algorithm(16, 120, 5, 1, 0, algorithm)));
     net.add(Box::new(ReLuLayer::new()));
     net.add(Box::new(LinearLayer::new(120, 84)));
     net.add(Box::new(ReLuLayer::new()));
