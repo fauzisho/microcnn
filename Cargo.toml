@@ -1,6 +1,6 @@
 [package]
 name = "microcnn"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Fauzi Sholichin"]
 license = "MIT"
@@ -8,7 +8,7 @@ description = "A minimal CNN framework in Rust with Quantization"
 repository = "https://github.com/fauzisho/microcnn"
 keywords = ["cnn", "neural-network", "quantization", "deep-learning"]
 categories = ["science", "algorithms"]
-exclude = ["data/*", ".idea/*"]
+exclude = ["data/*", ".idea/*", "result/*"]
 
 [features]
 default = ["simd"]
