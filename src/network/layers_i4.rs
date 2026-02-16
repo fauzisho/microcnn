@@ -1,4 +1,8 @@
+#[cfg(feature = "std")]
 use std::time::{Duration, Instant};
+
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use crate::tensor::Tensor;
 use crate::tensor_i4::TensorI4;
@@ -109,7 +113,7 @@ impl QuantizedLayerI4 for Conv2dLayerQ4 {
                             }
                         }
                         let result = sum as f32 * combined_scale + self.bias.get(oc, 0, 0, 0);
-                        let quantized = (result / self.output_params.scale).round() as i32 + self.output_params.zero_point;
+                        let quantized = libm::roundf(result / self.output_params.scale) as i32 + self.output_params.zero_point;
                         output.set(n, oc, oh, ow, quantized.clamp(lo, 7) as i8);
                     }
                 }
@@ -163,7 +167,7 @@ impl QuantizedLayerI4 for LinearLayerQ4 {
                     sum += (inp - input_zp) * wt;
                 }
                 let result = sum as f32 * combined_scale + self.bias.get(o, 0, 0, 0);
-                let quantized = (result / self.output_params.scale).round() as i32 + self.output_params.zero_point;
+                let quantized = libm::roundf(result / self.output_params.scale) as i32 + self.output_params.zero_point;
                 output.set(n, o, 0, 0, quantized.clamp(-8, 7) as i8);
             }
         }
@@ -307,6 +311,7 @@ impl QuantizedNeuralNetworkI4 {
         softmax.output().clone()
     }
 
+    #[cfg(feature = "std")]
     pub fn predict_timed(&self, input: &Tensor) -> (Vec<Tensor>, Vec<(LayerType, Duration)>) {
         let mut timings = Vec::new();
         let mut intermediates = Vec::new();

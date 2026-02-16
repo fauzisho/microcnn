@@ -1,4 +1,4 @@
-use std::fs::File;
+use alloc::vec;
 
 use crate::tensor::Tensor;
 use crate::conv::ConvAlgorithm;
@@ -89,10 +89,10 @@ impl Layer for Conv2dLayer {
     fn layer_type(&self) -> LayerType { if self.relu { LayerType::Conv2dReLu } else { LayerType::Conv2d } }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, file: &mut File) {
+    fn read_weights_bias(&mut self, data: &[u8], offset: &mut usize) {
         let w_count = self.weights.n * self.weights.c * self.weights.h * self.weights.w;
-        read_floats(file, &self.weights, w_count);
-        read_floats(file, &self.bias, self.bias.n);
+        read_floats(data, offset, &self.weights, w_count);
+        read_floats(data, offset, &self.bias, self.bias.n);
     }
 
     fn fwd(&mut self) {
@@ -100,7 +100,8 @@ impl Layer for Conv2dLayer {
         let output_width = (self.input.w + 2 * self.pad - self.kernel_size) / self.stride + 1;
 
         if output_height == 0 || output_width == 0 {
-            eprintln!("Error: Invalid dimensions in Conv2d.");
+            #[cfg(feature = "std")]
+            std::eprintln!("Error: Invalid dimensions in Conv2d.");
             return;
         }
 
@@ -208,14 +209,15 @@ impl Layer for LinearLayer {
     fn layer_type(&self) -> LayerType { LayerType::Linear }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, file: &mut File) {
-        read_floats(file, &self.weights, self.out_features * self.in_features);
-        read_floats(file, &self.bias, self.out_features);
+    fn read_weights_bias(&mut self, data: &[u8], offset: &mut usize) {
+        read_floats(data, offset, &self.weights, self.out_features * self.in_features);
+        read_floats(data, offset, &self.bias, self.out_features);
     }
 
     fn fwd(&mut self) {
         if self.input.is_empty() || self.input.c != self.in_features {
-            eprintln!("Error: Linear layer received input with invalid dimensions.");
+            #[cfg(feature = "std")]
+            std::eprintln!("Error: Linear layer received input with invalid dimensions.");
             return;
         }
 
@@ -261,14 +263,15 @@ impl Layer for MaxPool2dLayer {
     fn layer_type(&self) -> LayerType { LayerType::MaxPool2d }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, _file: &mut File) {}
+    fn read_weights_bias(&mut self, _data: &[u8], _offset: &mut usize) {}
 
     fn fwd(&mut self) {
         let output_height = (self.input.h + 2 * self.pad - self.kernel_size) / self.stride + 1;
         let output_width = (self.input.w + 2 * self.pad - self.kernel_size) / self.stride + 1;
 
         if output_height == 0 || output_width == 0 {
-            eprintln!("Error: Invalid dimensions in MaxPool2d.");
+            #[cfg(feature = "std")]
+            std::eprintln!("Error: Invalid dimensions in MaxPool2d.");
             return;
         }
 
@@ -316,11 +319,12 @@ impl Layer for ReLuLayer {
     fn layer_type(&self) -> LayerType { LayerType::ReLu }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, _file: &mut File) {}
+    fn read_weights_bias(&mut self, _data: &[u8], _offset: &mut usize) {}
 
     fn fwd(&mut self) {
         if self.input.is_empty() || self.input.h == 0 || self.input.w == 0 {
-            eprintln!("Error: ReLu received empty or invalid input tensor.");
+            #[cfg(feature = "std")]
+            std::eprintln!("Error: ReLu received empty or invalid input tensor.");
             return;
         }
 
@@ -360,11 +364,12 @@ impl Layer for SoftMaxLayer {
     fn layer_type(&self) -> LayerType { LayerType::SoftMax }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, _file: &mut File) {}
+    fn read_weights_bias(&mut self, _data: &[u8], _offset: &mut usize) {}
 
     fn fwd(&mut self) {
         if self.input.is_empty() || self.input.c == 0 {
-            eprintln!("Error: SoftMax received empty or invalid input tensor.");
+            #[cfg(feature = "std")]
+            std::eprintln!("Error: SoftMax received empty or invalid input tensor.");
             return;
         }
 
@@ -377,7 +382,7 @@ impl Layer for SoftMaxLayer {
 
             let mut sum = 0.0f32;
             for c in 0..self.input.c {
-                let val = (self.input.get(n, c, 0, 0) - max_val).exp();
+                let val = libm::expf(self.input.get(n, c, 0, 0) - max_val);
                 self.output.set(n, c, 0, 0, val);
                 sum += val;
             }
@@ -412,7 +417,7 @@ impl Layer for FlattenLayer {
     fn layer_type(&self) -> LayerType { LayerType::Flatten }
     impl_layer_common!();
 
-    fn read_weights_bias(&mut self, _file: &mut File) {}
+    fn read_weights_bias(&mut self, _data: &[u8], _offset: &mut usize) {}
 
     fn fwd(&mut self) {
         if self.output.is_empty() {

@@ -1,6 +1,8 @@
-use std::fmt;
-use std::sync::Arc;
-use std::cell::RefCell;
+use core::fmt;
+use alloc::sync::Arc;
+use core::cell::RefCell;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// A 4D floating-point tensor with shared-memory storage.
 ///

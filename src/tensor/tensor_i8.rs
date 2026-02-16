@@ -1,4 +1,6 @@
-use std::fmt;
+use core::fmt;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// A 4D INT8 tensor for quantized inference.
 ///

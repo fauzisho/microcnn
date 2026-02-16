@@ -11,9 +11,11 @@ categories = ["science", "algorithms"]
 exclude = ["data/*", ".idea/*", "result/*"]
 
 [features]
-default = ["simd"]
+default = ["std", "simd"]
+std = ["flate2"]
 simd = []
 mnist_pre_pad = []
 
 [dependencies]
-flate2 = "1"
+flate2 = { version = "1", optional = true }
+libm = "0.2"

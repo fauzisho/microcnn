@@ -1,3 +1,5 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use crate::tensor::Tensor;
 use crate::tensor_i8::TensorI8;
 use crate::tensor_i4::TensorI4;
@@ -18,7 +20,7 @@ impl QuantParams {
     pub fn asymmetric(min_val: f32, max_val: f32) -> Self {
         let range = max_val - min_val;
         let scale = if range < 1e-10 { 1.0 } else { range / 255.0 };
-        let zero_point = ((-128.0f32 - min_val / scale).round() as i32).clamp(-128, 127);
+        let zero_point = (libm::roundf(-128.0f32 - min_val / scale) as i32).clamp(-128, 127);
         QuantParams { scale, zero_point }
     }
 
@@ -30,7 +32,7 @@ impl QuantParams {
     pub fn asymmetric_i4(min_val: f32, max_val: f32) -> Self {
         let range = max_val - min_val;
         let scale = if range < 1e-10 { 1.0 } else { range / 15.0 };
-        let zero_point = ((-8.0f32 - min_val / scale).round() as i32).clamp(-8, 7);
+        let zero_point = (libm::roundf(-8.0f32 - min_val / scale) as i32).clamp(-8, 7);
         QuantParams { scale, zero_point }
     }
 }
@@ -53,7 +55,7 @@ pub fn quantize_tensor_symmetric(tensor: &Tensor) -> (TensorI8, QuantParams) {
         for c in 0..tensor.c {
             for h in 0..tensor.h {
                 for w in 0..tensor.w {
-                    let val = (tensor.get(n, c, h, w) / params.scale).round() as i32;
+                    let val = libm::roundf(tensor.get(n, c, h, w) / params.scale) as i32;
                     out.set(n, c, h, w, val.clamp(-128, 127) as i8);
                 }
             }
@@ -69,7 +71,7 @@ pub fn quantize_tensor_asymmetric(tensor: &Tensor, params: &QuantParams) -> Tens
         for c in 0..tensor.c {
             for h in 0..tensor.h {
                 for w in 0..tensor.w {
-                    let val = (tensor.get(n, c, h, w) / params.scale).round() as i32 + params.zero_point;
+                    let val = libm::roundf(tensor.get(n, c, h, w) / params.scale) as i32 + params.zero_point;
                     out.set(n, c, h, w, val.clamp(-128, 127) as i8);
                 }
             }
@@ -112,7 +114,7 @@ pub fn quantize_tensor_symmetric_i4(tensor: &Tensor) -> (TensorI4, QuantParams) 
         for c in 0..tensor.c {
             for h in 0..tensor.h {
                 for w in 0..tensor.w {
-                    let val = (tensor.get(n, c, h, w) / params.scale).round() as i32;
+                    let val = libm::roundf(tensor.get(n, c, h, w) / params.scale) as i32;
                     out.set(n, c, h, w, val.clamp(-8, 7) as i8);
                 }
             }
@@ -128,7 +130,7 @@ pub fn quantize_tensor_asymmetric_i4(tensor: &Tensor, params: &QuantParams) -> T
         for c in 0..tensor.c {
             for h in 0..tensor.h {
                 for w in 0..tensor.w {
-                    let val = (tensor.get(n, c, h, w) / params.scale).round() as i32 + params.zero_point;
+                    let val = libm::roundf(tensor.get(n, c, h, w) / params.scale) as i32 + params.zero_point;
                     out.set(n, c, h, w, val.clamp(-8, 7) as i8);
                 }
             }

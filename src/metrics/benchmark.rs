@@ -1,4 +1,6 @@
 use std::time::{Duration, Instant};
+use std::vec::Vec;
+use std::println;
 
 use crate::tensor::Tensor;
 use crate::network::{NeuralNetwork, QuantizedNeuralNetwork, QuantizedNeuralNetworkI4, LayerType};

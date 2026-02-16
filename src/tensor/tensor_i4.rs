@@ -1,4 +1,6 @@
-use std::fmt;
+use core::fmt;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// A 4D INT4 packed tensor for quantized inference.
 ///

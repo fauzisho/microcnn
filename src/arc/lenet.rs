@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::conv::ConvAlgorithm;
 use crate::network::*;
 use crate::quantization::{QuantParams, quantize_tensor_symmetric, quantize_tensor_symmetric_i4};

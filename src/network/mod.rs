@@ -9,9 +9,15 @@ pub use layers::*;
 pub use layers_i8::*;
 pub use layers_i4::*;
 
-use std::fmt;
+use core::fmt;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
+#[cfg(feature = "std")]
 use std::fs::File;
+#[cfg(feature = "std")]
 use std::io::Read;
+#[cfg(feature = "std")]
 use std::time::{Duration, Instant};
 
 use crate::tensor::Tensor;
@@ -63,28 +69,31 @@ pub(crate) fn pad_tensor(input: &Tensor, pad: usize, c: f32) -> Tensor {
 
 /// Trait for FP32 neural network layers.
 ///
-/// Each layer can read weights from a file, accept input, perform a forward pass,
+/// Each layer can read weights from a byte slice, accept input, perform a forward pass,
 /// and expose its output.
 pub trait Layer {
     fn layer_type(&self) -> LayerType;
     fn fwd(&mut self);
-    fn read_weights_bias(&mut self, file: &mut File);
+    fn read_weights_bias(&mut self, data: &[u8], offset: &mut usize);
     fn set_input(&mut self, input: Tensor);
     fn output(&self) -> &Tensor;
 
     fn print(&self) {
-        println!("{}", self.layer_type());
-        if !self.input_ref().is_empty() {
-            println!("  input: {}", self.input_ref());
-        }
-        if !self.weights_ref().is_empty() {
-            println!("  weights: {}", self.weights_ref());
-        }
-        if !self.bias_ref().is_empty() {
-            println!("  bias: {}", self.bias_ref());
-        }
-        if !self.output().is_empty() {
-            println!("  output: {}", self.output());
+        #[cfg(feature = "std")]
+        {
+            std::println!("{}", self.layer_type());
+            if !self.input_ref().is_empty() {
+                std::println!("  input: {}", self.input_ref());
+            }
+            if !self.weights_ref().is_empty() {
+                std::println!("  weights: {}", self.weights_ref());
+            }
+            if !self.bias_ref().is_empty() {
+                std::println!("  bias: {}", self.bias_ref());
+            }
+            if !self.output().is_empty() {
+                std::println!("  output: {}", self.output());
+            }
         }
     }
 
@@ -119,11 +128,12 @@ macro_rules! impl_layer_common {
 
 pub(crate) use impl_layer_common;
 
-pub(crate) fn read_floats(file: &mut File, tensor: &Tensor, count: usize) {
-    let mut buf = vec![0u8; count * 4];
-    file.read_exact(&mut buf).unwrap();
+/// Read `count` little-endian f32 values from `data` starting at `*offset`,
+/// writing them into `tensor` in NCHW order. Advances `*offset`.
+pub(crate) fn read_floats(data: &[u8], offset: &mut usize, tensor: &Tensor, count: usize) {
     for i in 0..count {
-        let bytes = [buf[i * 4], buf[i * 4 + 1], buf[i * 4 + 2], buf[i * 4 + 3]];
+        let pos = *offset + i * 4;
+        let bytes = [data[pos], data[pos + 1], data[pos + 2], data[pos + 3]];
         let val = f32::from_le_bytes(bytes);
         let n_size = tensor.c * tensor.h * tensor.w;
         let c_size = tensor.h * tensor.w;
@@ -134,11 +144,12 @@ pub(crate) fn read_floats(file: &mut File, tensor: &Tensor, count: usize) {
         let tw = i % h_size;
         tensor.set(tn, tc, th, tw, val);
     }
+    *offset += count * 4;
 }
 
 /// A FP32 neural network composed of sequential layers.
 ///
-/// Supports loading weights from a binary file and running forward inference.
+/// Supports loading weights from a binary file or byte slice and running forward inference.
 pub struct NeuralNetwork {
     debug: bool,
     layers: Vec<Box<dyn Layer>>,
@@ -156,29 +167,46 @@ impl NeuralNetwork {
         self.layers.push(layer);
     }
 
+    #[cfg(feature = "std")]
     pub fn load(&mut self, path: &str) {
         let mut file = match File::open(path) {
             Ok(f) => f,
             Err(_) => {
                 if self.debug {
-                    eprintln!("Error: Failed to open weights file: {}", path);
+                    std::eprintln!("Error: Failed to open weights file: {}", path);
                 }
                 return;
             }
         };
 
-        for layer in self.layers.iter_mut() {
-            layer.read_weights_bias(&mut file);
+        let mut buf = Vec::new();
+        if let Err(_) = file.read_to_end(&mut buf) {
             if self.debug {
-                println!("Loaded weights for layer: {}", layer.layer_type());
+                std::eprintln!("Error: Failed to read weights file: {}", path);
+            }
+            return;
+        }
+
+        self.load_from_bytes(&buf);
+    }
+
+    /// Load weights from a byte slice. Works in both `std` and `no_std` environments.
+    pub fn load_from_bytes(&mut self, data: &[u8]) {
+        let mut offset = 0usize;
+        for layer in self.layers.iter_mut() {
+            layer.read_weights_bias(data, &mut offset);
+            #[cfg(feature = "std")]
+            if self.debug {
+                std::println!("Loaded weights for layer: {}", layer.layer_type());
             }
         }
     }
 
     pub fn predict(&mut self, input: Tensor) -> Tensor {
         if input.is_empty() {
+            #[cfg(feature = "std")]
             if self.debug {
-                eprintln!("Error: Predict received empty input tensor.");
+                std::eprintln!("Error: Predict received empty input tensor.");
             }
             return Tensor::empty();
         }
@@ -188,8 +216,9 @@ impl NeuralNetwork {
             layer.set_input(cur);
             layer.fwd();
             if layer.output().is_empty() {
+                #[cfg(feature = "std")]
                 if self.debug {
-                    eprintln!("Error: Layer {} produced empty output.", layer.layer_type());
+                    std::eprintln!("Error: Layer {} produced empty output.", layer.layer_type());
                 }
                 return Tensor::empty();
             }
@@ -213,6 +242,7 @@ impl NeuralNetwork {
         intermediates
     }
 
+    #[cfg(feature = "std")]
     pub fn predict_timed(&mut self, input: Tensor) -> (Vec<Tensor>, Vec<(LayerType, Duration)>) {
         let mut timings = Vec::new();
         let mut intermediates = Vec::new();

@@ -3,6 +3,7 @@
 /// Unfolds input patches into a column matrix, then performs a tiled matrix multiply
 /// for cache-friendly access patterns.
 
+use alloc::vec;
 use super::simd;
 
 const TILE: usize = 32;
@@ -232,7 +233,7 @@ fn gemm_i8(
             let corrected = raw_dot - input_zp * w_sum;
             // Dequantize to f32, add bias, requantize
             let result = corrected as f32 * combined_scale + bias_val;
-            let quantized = (result * inv_out_scale).round() as i32 + output_zp;
+            let quantized = libm::roundf(result * inv_out_scale) as i32 + output_zp;
             output[out_row + col] = quantized.clamp(lo, 127) as i8;
         }
     }

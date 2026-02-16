@@ -3,7 +3,9 @@
 /// Uses radix-2 Cooley-Tukey FFT. Zero-pads input and kernel to next power of 2,
 /// multiplies in frequency domain, then inverse FFTs back.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
+use alloc::vec;
+use alloc::vec::Vec;
 
 #[derive(Clone, Copy)]
 struct Complex {
@@ -87,7 +89,7 @@ fn fft_1d(data: &mut [Complex], inverse: bool) {
         } else {
             -2.0 * PI / len as f32
         };
-        let wn = Complex::new(angle.cos(), angle.sin());
+        let wn = Complex::new(libm::cosf(angle), libm::sinf(angle));
 
         let mut i = 0;
         while i < n {

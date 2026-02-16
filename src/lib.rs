@@ -13,6 +13,12 @@
 //! net.load("data/lenet.raw");
 //! ```
 
+#![no_std]
+extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
+
 /// FP32, INT8, and INT4 tensors.
 pub mod tensor;
 /// Re-export tensor types at legacy paths.
@@ -54,7 +60,9 @@ pub mod lenet {
 pub mod network;
 
 /// MNIST dataset loaders.
+#[cfg(feature = "std")]
 pub mod loader;
+#[cfg(feature = "std")]
 pub mod mnist {
     pub use crate::loader::MNIST;
     pub use crate::loader::MNISTLabels;
@@ -64,7 +72,9 @@ pub mod mnist {
 pub mod conv;
 
 /// Benchmarking utilities for comparing FP32/INT8/INT4 performance.
+#[cfg(feature = "std")]
 pub mod metrics;
+#[cfg(feature = "std")]
 pub mod benchmark {
     pub use crate::metrics::*;
 }

@@ -4,7 +4,7 @@
 
 #[cfg(all(target_arch = "aarch64", feature = "simd"))]
 pub fn axpy_f32(c: &mut [f32], c_off: usize, b: &[f32], b_off: usize, a_val: f32, len: usize) {
-    use std::arch::aarch64::*;
+    use core::arch::aarch64::*;
     let mut j = 0usize;
     unsafe {
         let a_vec = vdupq_n_f32(a_val);
@@ -37,7 +37,7 @@ pub fn axpy_f32(c: &mut [f32], c_off: usize, b: &[f32], b_off: usize, a_val: f32
 
 #[cfg(all(target_arch = "aarch64", feature = "simd"))]
 pub fn dot_i8(a: &[i8], a_off: usize, b: &[i8], b_off: usize, len: usize) -> i32 {
-    use std::arch::aarch64::*;
+    use core::arch::aarch64::*;
     let mut j = 0usize;
     unsafe {
         let mut acc0 = vdupq_n_s32(0);
@@ -93,7 +93,7 @@ pub fn dot_i8(a: &[i8], a_off: usize, b: &[i8], b_off: usize, len: usize) -> i32
 
 #[cfg(all(target_arch = "aarch64", feature = "simd"))]
 pub fn sum_i8(a: &[i8], a_off: usize, len: usize) -> i32 {
-    use std::arch::aarch64::*;
+    use core::arch::aarch64::*;
     let mut j = 0usize;
     unsafe {
         let mut acc = vdupq_n_s32(0);

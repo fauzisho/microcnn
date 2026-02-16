@@ -3,6 +3,8 @@
 /// Only supports 3x3 kernels with stride=1. For other configurations,
 /// the dispatcher falls back to Im2col.
 
+use alloc::vec;
+
 /// Transform a 3x3 filter tile using G * g * G^T.
 /// G is 4x3, g is 3x3, result U is 4x4.
 #[inline]
