@@ -44,6 +44,10 @@ pub mod lenet {
     pub use crate::arc::lenet_with_algorithm;
     pub use crate::arc::lenet_quantized;
     pub use crate::arc::lenet_quantized_i4;
+    pub use crate::arc::lenet_fused;
+    pub use crate::arc::lenet_fused_with_algorithm;
+    pub use crate::arc::lenet_quantized_fused;
+    pub use crate::arc::lenet_quantized_i4_fused;
 }
 
 /// Neural network layers and network types (FP32, INT8, INT4).

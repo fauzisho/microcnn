@@ -121,6 +121,7 @@ pub fn conv2d_winograd(
     out_h: usize,
     out_w: usize,
     output: &mut [f32],
+    relu: bool,
 ) {
     // Pre-transform all filters: U[oc][ic] = G * g * G^T
     let mut u_all = vec![[0.0f32; 16]; out_channels * in_channels];
@@ -187,8 +188,9 @@ pub fn conv2d_winograd(
                             let oh = oh_base + dy;
                             let ow = ow_base + dx;
                             if oh < out_h && ow < out_w {
+                                let val = out_tile[dy * 2 + dx] + bias_val;
                                 output[out_off + oc * out_h * out_w + oh * out_w + ow] =
-                                    out_tile[dy * 2 + dx] + bias_val;
+                                    if relu { val.max(0.0) } else { val };
                             }
                         }
                     }

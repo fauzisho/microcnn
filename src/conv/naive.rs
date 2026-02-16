@@ -15,6 +15,7 @@ pub fn conv2d_naive(
     out_h: usize,
     out_w: usize,
     output: &mut [f32],
+    relu: bool,
 ) {
     for n in 0..batch {
         for oc in 0..out_channels {
@@ -42,7 +43,8 @@ pub fn conv2d_naive(
                         + oc * out_h * out_w
                         + oh * out_w
                         + ow;
-                    output[out_idx] = sum + bias[oc];
+                    let val = sum + bias[oc];
+                    output[out_idx] = if relu { val.max(0.0) } else { val };
                 }
             }
         }

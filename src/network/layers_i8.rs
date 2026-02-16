@@ -40,6 +40,7 @@ pub struct Conv2dLayerQ {
     kernel_size: usize,
     stride: usize,
     pad: usize,
+    relu: bool,
     weights_i8: TensorI8,
     weight_params: QuantParams,
     bias: Tensor,
@@ -55,13 +56,28 @@ impl Conv2dLayerQ {
     ) -> Self {
         Conv2dLayerQ {
             in_channels, out_channels, kernel_size, stride, pad,
+            relu: false,
+            weights_i8, weight_params, bias, output_params,
+        }
+    }
+
+    pub fn new_fused(
+        in_channels: usize, out_channels: usize, kernel_size: usize,
+        stride: usize, pad: usize,
+        weights_i8: TensorI8, weight_params: QuantParams,
+        bias: Tensor, output_params: QuantParams,
+        relu: bool,
+    ) -> Self {
+        Conv2dLayerQ {
+            in_channels, out_channels, kernel_size, stride, pad,
+            relu,
             weights_i8, weight_params, bias, output_params,
         }
     }
 }
 
 impl QuantizedLayer for Conv2dLayerQ {
-    fn layer_type(&self) -> LayerType { LayerType::Conv2d }
+    fn layer_type(&self) -> LayerType { if self.relu { LayerType::Conv2dReLu } else { LayerType::Conv2d } }
 
     fn weight_memory_bytes(&self) -> usize {
         self.weights_i8.memory_bytes() + self.out_channels * 4
@@ -99,6 +115,7 @@ impl QuantizedLayer for Conv2dLayerQ {
             self.output_params.scale,
             self.output_params.zero_point,
             &mut output.data,
+            self.relu,
         );
 
         (output, self.output_params.clone())

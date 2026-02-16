@@ -40,6 +40,7 @@ pub struct Conv2dLayerQ4 {
     kernel_size: usize,
     stride: usize,
     pad: usize,
+    relu: bool,
     weights_i4: TensorI4,
     weight_params: QuantParams,
     bias: Tensor,
@@ -55,13 +56,28 @@ impl Conv2dLayerQ4 {
     ) -> Self {
         Conv2dLayerQ4 {
             in_channels, out_channels, kernel_size, stride, pad,
+            relu: false,
+            weights_i4, weight_params, bias, output_params,
+        }
+    }
+
+    pub fn new_fused(
+        in_channels: usize, out_channels: usize, kernel_size: usize,
+        stride: usize, pad: usize,
+        weights_i4: TensorI4, weight_params: QuantParams,
+        bias: Tensor, output_params: QuantParams,
+        relu: bool,
+    ) -> Self {
+        Conv2dLayerQ4 {
+            in_channels, out_channels, kernel_size, stride, pad,
+            relu,
             weights_i4, weight_params, bias, output_params,
         }
     }
 }
 
 impl QuantizedLayerI4 for Conv2dLayerQ4 {
-    fn layer_type(&self) -> LayerType { LayerType::Conv2d }
+    fn layer_type(&self) -> LayerType { if self.relu { LayerType::Conv2dReLu } else { LayerType::Conv2d } }
 
     fn weight_memory_bytes(&self) -> usize {
         self.weights_i4.memory_bytes() + self.out_channels * 4
@@ -76,6 +92,7 @@ impl QuantizedLayerI4 for Conv2dLayerQ4 {
 
         let combined_scale = input_params.scale * self.weight_params.scale;
         let input_zp = input_params.zero_point;
+        let lo = if self.relu { self.output_params.zero_point.clamp(-8, 7) } else { -8 };
 
         for n in 0..input.n {
             for oc in 0..self.out_channels {
@@ -93,7 +110,7 @@ impl QuantizedLayerI4 for Conv2dLayerQ4 {
                         }
                         let result = sum as f32 * combined_scale + self.bias.get(oc, 0, 0, 0);
                         let quantized = (result / self.output_params.scale).round() as i32 + self.output_params.zero_point;
-                        output.set(n, oc, oh, ow, quantized.clamp(-8, 7) as i8);
+                        output.set(n, oc, oh, ow, quantized.clamp(lo, 7) as i8);
                     }
                 }
             }
