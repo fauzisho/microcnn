@@ -12,6 +12,7 @@ pub struct Conv2dLayer {
     stride: usize,
     pad: usize,
     algorithm: ConvAlgorithm,
+    relu: bool,
     input: Tensor,
     weights: Tensor,
     bias: Tensor,
@@ -27,6 +28,7 @@ impl Conv2dLayer {
             stride,
             pad,
             algorithm: ConvAlgorithm::Naive,
+            relu: false,
             input: Tensor::empty(),
             weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
             bias: Tensor::new1(out_channels),
@@ -42,6 +44,39 @@ impl Conv2dLayer {
             stride,
             pad,
             algorithm,
+            relu: false,
+            input: Tensor::empty(),
+            weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
+            bias: Tensor::new1(out_channels),
+            output: Tensor::empty(),
+        }
+    }
+
+    pub fn with_relu(in_channels: usize, out_channels: usize, kernel_size: usize, stride: usize, pad: usize) -> Self {
+        Conv2dLayer {
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            pad,
+            algorithm: ConvAlgorithm::Naive,
+            relu: true,
+            input: Tensor::empty(),
+            weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
+            bias: Tensor::new1(out_channels),
+            output: Tensor::empty(),
+        }
+    }
+
+    pub fn with_algorithm_relu(in_channels: usize, out_channels: usize, kernel_size: usize, stride: usize, pad: usize, algorithm: ConvAlgorithm) -> Self {
+        Conv2dLayer {
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            pad,
+            algorithm,
+            relu: true,
             input: Tensor::empty(),
             weights: Tensor::new(out_channels, in_channels, kernel_size, kernel_size),
             bias: Tensor::new1(out_channels),
@@ -51,7 +86,7 @@ impl Conv2dLayer {
 }
 
 impl Layer for Conv2dLayer {
-    fn layer_type(&self) -> LayerType { LayerType::Conv2d }
+    fn layer_type(&self) -> LayerType { if self.relu { LayerType::Conv2dReLu } else { LayerType::Conv2d } }
     impl_layer_common!();
 
     fn read_weights_bias(&mut self, file: &mut File) {
@@ -127,6 +162,7 @@ impl Layer for Conv2dLayer {
             output_height,
             output_width,
             &mut output_flat,
+            self.relu,
         );
 
         // Copy back to output tensor

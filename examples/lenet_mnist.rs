@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 
 use microcnn::conv::ConvAlgorithm;
 use microcnn::mnist::{MNIST, MNISTLabels};
-use microcnn::lenet::{lenet, lenet_with_algorithm, lenet_quantized, lenet_quantized_i4};
+use microcnn::lenet::{lenet, lenet_with_algorithm, lenet_quantized, lenet_quantized_i4,
+    lenet_fused, lenet_quantized_fused, lenet_quantized_i4_fused};
 use microcnn::quantization::Calibrator;
 use microcnn::benchmark::{run_benchmark, print_report};
 use microcnn::tensor::Tensor;
@@ -375,4 +376,83 @@ fn main() {
         "{:<10} {:>12.1}us {:>12.1}us {:>12.1}us {:>13.2}x {:>13.2}x",
         "Full Net", fp32_full_us, int8_full_us, int4_full_us, int8_full_speedup, int4_full_speedup
     );
+
+    // ===== Conv2d+ReLU Fusion Benchmark =====
+    println!("\n{}", "=".repeat(60));
+    println!("=== Conv2d+ReLU Fusion Benchmark ===");
+    println!("{}", "=".repeat(60));
+
+    // Build fused networks
+    let mut fp32_fused = lenet_fused(false);
+    fp32_fused.load(weights_path);
+
+    let int8_fused = lenet_quantized_fused(&fp32_net, calibrator.input_params(), &layer_params);
+    let int4_fused = lenet_quantized_i4_fused(&fp32_net, calibrator.input_params_i4(), &layer_params_i4);
+
+    // Warm up
+    for _ in 0..warmup {
+        let input = test_images.at(0);
+        let _ = fp32_fused.predict(input.clone());
+        let _ = int8_fused.predict(&input);
+        let _ = int4_fused.predict(&input);
+    }
+
+    // Timing: fused vs non-fused
+    let mut fp32_nonfused_total = Duration::ZERO;
+    let mut fp32_fused_total = Duration::ZERO;
+    let mut int8_nonfused_total = Duration::ZERO;
+    let mut int8_fused_total = Duration::ZERO;
+    let mut int4_nonfused_total = Duration::ZERO;
+    let mut int4_fused_total = Duration::ZERO;
+
+    for i in 0..timing_iters {
+        let input = test_images.at(i % 100);
+
+        let start = Instant::now();
+        let _ = im2col_net.predict(input.clone());
+        fp32_nonfused_total += start.elapsed();
+
+        let start = Instant::now();
+        let _ = fp32_fused.predict(input.clone());
+        fp32_fused_total += start.elapsed();
+
+        let start = Instant::now();
+        let _ = int8_net.predict(&input);
+        int8_nonfused_total += start.elapsed();
+
+        let start = Instant::now();
+        let _ = int8_fused.predict(&input);
+        int8_fused_total += start.elapsed();
+
+        let start = Instant::now();
+        let _ = int4_net.predict(&input);
+        int4_nonfused_total += start.elapsed();
+
+        let start = Instant::now();
+        let _ = int4_fused.predict(&input);
+        int4_fused_total += start.elapsed();
+    }
+
+    println!("\n--- Fused vs Non-Fused (avg over {} inferences) ---", timing_iters);
+    println!(
+        "{:<16} {:>14} {:>14} {:>10}",
+        "Variant", "Non-Fused", "Fused", "Speedup"
+    );
+    println!("{}", "-".repeat(56));
+
+    let pairs = [
+        ("FP32 (Naive)", fp32_nonfused_total, fp32_fused_total),
+        ("INT8", int8_nonfused_total, int8_fused_total),
+        ("INT4", int4_nonfused_total, int4_fused_total),
+    ];
+
+    for (name, nf, f) in &pairs {
+        let nf_us = nf.as_nanos() as f64 / timing_iters as f64 / 1000.0;
+        let f_us = f.as_nanos() as f64 / timing_iters as f64 / 1000.0;
+        let speedup = if f_us > 0.001 { nf_us / f_us } else { 0.0 };
+        println!(
+            "{:<16} {:>12.1}us {:>12.1}us {:>9.2}x",
+            name, nf_us, f_us, speedup
+        );
+    }
 }

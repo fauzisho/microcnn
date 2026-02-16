@@ -214,6 +214,7 @@ pub fn conv2d_fft(
     out_h: usize,
     out_w: usize,
     output: &mut [f32],
+    relu: bool,
 ) {
     let full_out_h = in_h - kernel_size + 1;
     let full_out_w = in_w - kernel_size + 1;
@@ -276,19 +277,22 @@ pub fn conv2d_fft(
                 }
             }
 
-            // Add bias
+            // Add bias (and fused ReLU)
             if stride > 1 {
                 let ch_off = out_off + oc * out_h * out_w;
                 for oh in 0..out_h {
                     for ow in 0..out_w {
-                        output[ch_off + oh * out_w + ow] =
-                            full_output[oh * stride * full_out_w + ow * stride] + bias[oc];
+                        let val = full_output[oh * stride * full_out_w + ow * stride] + bias[oc];
+                        output[ch_off + oh * out_w + ow] = if relu { val.max(0.0) } else { val };
                     }
                 }
             } else {
                 let ch_off = out_off + oc * out_h * out_w;
                 for v in output[ch_off..ch_off + out_h * out_w].iter_mut() {
                     *v += bias[oc];
+                    if relu {
+                        *v = v.max(0.0);
+                    }
                 }
             }
         }

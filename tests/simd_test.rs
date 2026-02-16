@@ -92,7 +92,7 @@ fn test_i8_im2col_vs_scalar_3x3() {
     conv2d_im2col_i8(
         &input, batch, in_c, in_h, in_w, &weights, &bias,
         out_c, ks, stride, out_h, out_w,
-        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col,
+        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col, false,
     );
 
     assert_eq!(out_scalar, out_im2col, "3x3 kernel: im2col != scalar");
@@ -134,7 +134,7 @@ fn test_i8_im2col_vs_scalar_5x5_non_aligned_k() {
     conv2d_im2col_i8(
         &input, batch, in_c, in_h, in_w, &weights, &bias,
         out_c, ks, stride, out_h, out_w,
-        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col,
+        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col, false,
     );
 
     assert_eq!(out_scalar, out_im2col, "5x5 kernel (k=25): im2col != scalar");
@@ -176,7 +176,7 @@ fn test_i8_im2col_nonzero_zero_point() {
     conv2d_im2col_i8(
         &input, batch, in_c, in_h, in_w, &weights, &bias,
         out_c, ks, stride, out_h, out_w,
-        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col,
+        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col, false,
     );
 
     assert_eq!(out_scalar, out_im2col, "non-zero zp: im2col != scalar");
@@ -218,7 +218,7 @@ fn test_i8_im2col_multi_channel() {
     conv2d_im2col_i8(
         &input, batch, in_c, in_h, in_w, &weights, &bias,
         out_c, ks, stride, out_h, out_w,
-        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col,
+        input_zp, combined_scale, output_scale, output_zp, &mut out_im2col, false,
     );
 
     assert_eq!(out_scalar, out_im2col, "multi-channel stride=2: im2col != scalar");

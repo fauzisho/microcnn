@@ -46,18 +46,19 @@ pub fn conv2d(
     out_h: usize,
     out_w: usize,
     output: &mut [f32],
+    relu: bool,
 ) {
     match algorithm {
         ConvAlgorithm::Naive => {
             conv2d_naive(
                 input, batch, in_channels, in_h, in_w, weights, bias,
-                out_channels, kernel_size, stride, out_h, out_w, output,
+                out_channels, kernel_size, stride, out_h, out_w, output, relu,
             );
         }
         ConvAlgorithm::Im2col => {
             conv2d_im2col(
                 input, batch, in_channels, in_h, in_w, weights, bias,
-                out_channels, kernel_size, stride, out_h, out_w, output,
+                out_channels, kernel_size, stride, out_h, out_w, output, relu,
             );
         }
         ConvAlgorithm::Winograd => {
@@ -65,19 +66,19 @@ pub fn conv2d(
             if kernel_size == 3 && stride == 1 {
                 conv2d_winograd(
                     input, batch, in_channels, in_h, in_w, weights, bias,
-                    out_channels, out_h, out_w, output,
+                    out_channels, out_h, out_w, output, relu,
                 );
             } else {
                 conv2d_im2col(
                     input, batch, in_channels, in_h, in_w, weights, bias,
-                    out_channels, kernel_size, stride, out_h, out_w, output,
+                    out_channels, kernel_size, stride, out_h, out_w, output, relu,
                 );
             }
         }
         ConvAlgorithm::Fft => {
             conv2d_fft(
                 input, batch, in_channels, in_h, in_w, weights, bias,
-                out_channels, kernel_size, stride, out_h, out_w, output,
+                out_channels, kernel_size, stride, out_h, out_w, output, relu,
             );
         }
     }

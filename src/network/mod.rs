@@ -20,6 +20,7 @@ use crate::tensor::Tensor;
 #[derive(Debug, Clone, Copy)]
 pub enum LayerType {
     Conv2d,
+    Conv2dReLu,
     Linear,
     MaxPool2d,
     ReLu,
@@ -31,6 +32,7 @@ impl fmt::Display for LayerType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LayerType::Conv2d => write!(f, "Conv2d"),
+            LayerType::Conv2dReLu => write!(f, "Conv2d+ReLu"),
             LayerType::Linear => write!(f, "Linear"),
             LayerType::MaxPool2d => write!(f, "MaxPool2d"),
             LayerType::ReLu => write!(f, "ReLu"),

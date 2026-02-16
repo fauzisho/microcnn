@@ -29,7 +29,7 @@ fn run_naive(
     out_h: usize, out_w: usize,
 ) -> Vec<f32> {
     let mut output = vec![0.0f32; batch * out_c * out_h * out_w];
-    conv2d_naive(input, batch, in_c, in_h, in_w, weights, bias, out_c, kernel, stride, out_h, out_w, &mut output);
+    conv2d_naive(input, batch, in_c, in_h, in_w, weights, bias, out_c, kernel, stride, out_h, out_w, &mut output, false);
     output
 }
 
@@ -41,7 +41,7 @@ fn run_algorithm(
     out_h: usize, out_w: usize,
 ) -> Vec<f32> {
     let mut output = vec![0.0f32; batch * out_c * out_h * out_w];
-    conv2d(algo, input, batch, in_c, in_h, in_w, weights, bias, out_c, kernel, stride, out_h, out_w, &mut output);
+    conv2d(algo, input, batch, in_c, in_h, in_w, weights, bias, out_c, kernel, stride, out_h, out_w, &mut output, false);
     output
 }
 

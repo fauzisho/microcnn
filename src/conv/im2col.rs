@@ -51,6 +51,7 @@ fn gemm_tiled(
     n: usize,
     k: usize,
     c: &mut [f32],
+    relu: bool,
 ) {
     // Initialize with bias
     for i in 0..m {
@@ -86,6 +87,13 @@ fn gemm_tiled(
         }
         ii += TILE;
     }
+
+    // Fused ReLU: data is cache-hot after GEMM
+    if relu {
+        for v in c.iter_mut() {
+            *v = v.max(0.0);
+        }
+    }
 }
 
 /// Im2col + GEMM convolution.
@@ -105,6 +113,7 @@ pub fn conv2d_im2col(
     out_h: usize,
     out_w: usize,
     output: &mut [f32],
+    relu: bool,
 ) {
     let col_rows = in_channels * kernel_size * kernel_size;
     let col_cols = out_h * out_w;
@@ -139,6 +148,7 @@ pub fn conv2d_im2col(
             col_cols,
             col_rows,
             &mut output[out_off..out_off + out_spatial],
+            relu,
         );
     }
 }
@@ -196,8 +206,10 @@ fn gemm_i8(
     output_scale: f32,
     output_zp: i32,
     output: &mut [i8],
+    relu: bool,
 ) {
     let inv_out_scale = 1.0 / output_scale;
+    let lo = if relu { output_zp.max(-128) } else { -128 };
 
     // Precompute sum of weights per output channel for zero-point correction:
     // sum((in - zp) * w) = sum(in * w) - zp * sum(w)
@@ -221,7 +233,7 @@ fn gemm_i8(
             // Dequantize to f32, add bias, requantize
             let result = corrected as f32 * combined_scale + bias_val;
             let quantized = (result * inv_out_scale).round() as i32 + output_zp;
-            output[out_row + col] = quantized.clamp(-128, 127) as i8;
+            output[out_row + col] = quantized.clamp(lo, 127) as i8;
         }
     }
 }
@@ -247,6 +259,7 @@ pub fn conv2d_im2col_i8(
     output_scale: f32,
     output_zp: i32,
     output: &mut [i8],
+    relu: bool,
 ) {
     let k = in_channels * kernel_size * kernel_size;
     let n_cols = out_h * out_w;
@@ -283,6 +296,7 @@ pub fn conv2d_im2col_i8(
             output_scale,
             output_zp,
             &mut output[out_off..out_off + out_spatial],
+            relu,
         );
     }
 }
